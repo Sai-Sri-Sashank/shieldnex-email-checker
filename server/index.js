@@ -182,14 +182,31 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Serve static files in production (client build)
+// Serve static files and SPA fallback in production
 if (process.env.NODE_ENV === 'production') {
   const path = require('path');
   const clientDist = path.join(__dirname, '..', 'client', 'dist');
+  // Serve built assets
   app.use(express.static(clientDist));
-  // All other routes serve the index.html (SPA)
-  app.get('/:splat(*)', (req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
+
+  // Catch‑all middleware for HTML GET requests (excluding API)
+  app.use((req, res, next) => {
+    // Only handle GET requests that accept HTML
+    if (req.method !== 'GET') return next();
+    const accept = req.headers.accept || '';
+    if (!accept.includes('text/html')) return next();
+    // Ensure API routes are not swallowed
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    // Serve the SPA entry point
+    const indexPath = path.join(clientDist, 'index.html');
+    res.sendFile(indexPath, err => {
+      if (err) {
+        // If the file is missing or another error occurs, forward to error handler
+        return next(err);
+      }
+    });
   });
 }
 
