@@ -168,7 +168,8 @@ app.post('/api/check-emails', async (req, res) => {
   const checks = uniqueEmails.map(email => () => checkEmail(email));
 
   try {
-    const results = await Promise.all(checks);
+    // Execute the check functions concurrently respecting the concurrency limit inside checkEmail
+    const results = await Promise.all(checks.map(fn => fn()));
     res.json({ results });
   } catch (err) {
     console.error('Unexpected error:', err);
@@ -187,7 +188,7 @@ if (process.env.NODE_ENV === 'production') {
   const clientDist = path.join(__dirname, '..', 'client', 'dist');
   app.use(express.static(clientDist));
   // All other routes serve the index.html (SPA)
-  app.get('*', (req, res) => {
+  app.get('/:splat(*)', (req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
